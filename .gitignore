@@ -1,0 +1,4 @@
+﻿lms/
+node_modules/
+.env
+.env.*

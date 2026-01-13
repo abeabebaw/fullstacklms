@@ -1,23 +1,29 @@
-import React, { useEffect, useRef, useState, useContext } from 'react'
-import Quill from 'quill'
-import 'quill/dist/quill.snow.css' // Important: import styles for the editor
-import { assets } from '../../assets/assets'
-import { useAuth } from '@clerk/clerk-react'
-import { AppContext } from '../../context/AppContext'
-import { apiService } from '../../services/api'
+import React, { useEffect, useRef, useState, useContext } from 'react';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
+import { assets } from '../../assets/assets';
+import { useAuth } from '@clerk/clerk-react';
+import { AppContext } from '../../context/AppContext';
+import { apiService } from '../../services/api';
+import { useParams, Link } from 'react-router-dom';
 
-const AddCourse = () => {
+const EditCourse = () => {
+  // Support both ":id" and ":courseId" param names
+  const { id, courseId } = useParams();
+  const effectiveId = id || courseId;
   const quillRef = useRef(null);
   const editorRef = useRef(null);
   const { getToken } = useAuth();
-  const { fetchAllCourses } = useContext(AppContext);
+  const { fetchEducatorCourses } = useContext(AppContext);
 
   const [courseTitle, setCourseTitle] = useState('');
   const [courseLevel, setCourseLevel] = useState('beginner');
   const [courseCategory, setCourseCategory] = useState('');
   const [coursePrice, setCoursePrice] = useState(0);
   const [discount, setDiscount] = useState(0);
+  const [courseDescription, setCourseDescription] = useState('');
   const [image, setImage] = useState(null);
+  const [existingThumbnail, setExistingThumbnail] = useState('');
   const [chapters, setChapters] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [currentChapterId, setCurrentChapterId] = useState(null);
@@ -27,141 +33,67 @@ const AddCourse = () => {
     lectureUrl: '',
     isPreviewFree: false
   });
-  // map of lectureId -> File for local video uploads (ref so mutations don't re-render)
+  const [editingLectureId, setEditingLectureId] = useState(null);
   const lectureFilesRef = useRef(new Map());
   const [popupFile, setPopupFile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // handlers
-  const addChapter = (action, chapterId) => {
-    if (action === 'add') {
-      const title = prompt('Enter Chapter Name:');
-      if (title) {
-        const newChapter = {
-          chapterId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `ch_${Math.random().toString(36).slice(2)}`,
-          chapterTitle: title,
-          chapterContent: [],
-          collapsed: false,
-          chapterOrder: chapters.length > 0 ? chapters[chapters.length - 1].chapterOrder + 1 : 1
-        }
-        setChapters([...chapters, newChapter])
-      }
-    }
-    else if (action === 'remove') {
-      setChapters(chapters.filter((chapter) => chapter.chapterId !== chapterId))
-    }
-    else if (action === 'toggle') {
-      setChapters(
-        chapters.map((chapter) =>
-          chapter.chapterId === chapterId ? {
-            ...chapter,
-            collapsed: !chapter.collapsed
-          } : chapter
-        )
-      )
-    }
-  }
-
-  const toggleChapter = (id) => {
-    setChapters((s) => s.map(c => c.chapterId === id ? { ...c, collapsed: !c.collapsed } : c))
-  }
-
-  const openAddLecture = (chapterId) => {
-    setCurrentChapterId(chapterId)
-    setLectureDetails({ lectureTitle: '', lectureDuration: '', lectureUrl: '', isPreviewFree: false })
-    setShowPopup(true)
-  }
-
-  const saveLecture = () => {
-    if (!currentChapterId) return
-    setChapters((s) => s.map(c => {
-      if (c.chapterId !== currentChapterId) return c
-      const newLectureId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `lec_${Math.random().toString(36).slice(2)}`;
-      const newLecture = {
-        lectureId: newLectureId,
-        lectureTitle: lectureDetails.lectureTitle || 'Untitled Lecture',
-        lectureDuration: Number(lectureDetails.lectureDuration) || 0,
-        // if a local file was provided, create an object URL for preview; otherwise use provided URL
-        lectureUrl: popupFile ? URL.createObjectURL(popupFile) : (lectureDetails.lectureUrl || ''),
-        isPreviewFree: !!lectureDetails.isPreviewFree,
-        lectureOrder: c.chapterContent.length + 1
-      }
-
-      // if a file was selected in the popup, store it in the ref map with a name prefixed by lectureId
-      if (popupFile) {
-        try {
-          const renamed = new File([popupFile], `${newLectureId}_${popupFile.name}`, { type: popupFile.type });
-          lectureFilesRef.current.set(newLectureId, renamed);
-        } catch (err) {
-          // fallback: some browsers may not allow File constructor; keep original file but prefix not available
-          lectureFilesRef.current.set(newLectureId, popupFile);
-        }
-      }
-
-      return { ...c, chapterContent: [...c.chapterContent, newLecture] }
-    }))
-    setShowPopup(false)
-    setPopupFile(null)
-  }
-
-  const removeLecture = (chapterId, lectureId) => {
-    setChapters((s) => s.map(c => c.chapterId === chapterId ?
-      { ...c, chapterContent: c.chapterContent.filter(l => l.lectureId !== lectureId) } : c))
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (submitting) return;
-    setSubmitting(true);
-    let description = ''
-    if (quillRef.current) {
-      const plain = quillRef.current.getText().trim()
-      description = plain.length > 0 ? quillRef.current.root.innerHTML : ''
-    }
-    const courseData = {
-      courseTitle,
-      courseLevel,
-      courseCategory,
-      coursePrice: Number(coursePrice) || 0,
-      discount: Number(discount) || 0,
-      courseDescription: description,
-      courseContent: chapters
-    }
-
-    try {
-      const token = await getToken();
-      // collect lecture files from the ref
-      const lectureFiles = Array.from(lectureFilesRef.current.values());
-      const result = await apiService.addCourse(courseData, image, lectureFiles, token);
-      if (result.success) {
-        alert('Course added successfully!')
-        // Refresh global course list
-        try { await fetchAllCourses(); } catch (e) { /* ignore */ }
-        // Reset form
-        setCourseTitle('');
-        setCoursePrice(0);
-        setDiscount(0);
-        setImage(null);
-        setChapters([]);
-        lectureFilesRef.current = new Map();
-        if (quillRef.current) {
-          try {
-            quillRef.current.clipboard.dangerouslyPasteHTML('');
-          } catch (err) {
-            quillRef.current.root.innerHTML = '';
+  // Fetch existing course
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = await getToken();
+        const result = await apiService.getCourseById(effectiveId, token);
+        if (result.success && result.courseData) {
+          const c = result.courseData;
+          setCourseTitle(c.courseTitle || '');
+          setCourseLevel(c.courseLevel || 'beginner');
+          setCourseCategory(c.courseCategory || '');
+          setCoursePrice(Number(c.coursePrice || 0));
+          setDiscount(Number(c.discount || 0));
+          setExistingThumbnail(c.courseThumbnail || '');
+          setCourseDescription(c.courseDescription || '');
+          setChapters(Array.isArray(c.courseContent) ? c.courseContent.map(ch => ({
+            ...ch,
+            collapsed: false
+          })) : []);
+          if (quillRef.current) {
+            try {
+              quillRef.current.clipboard.dangerouslyPasteHTML(c.courseDescription || '');
+            } catch (err) {
+              quillRef.current.root.innerHTML = c.courseDescription || '';
+            }
+          } else if (editorRef.current) {
+            // Initialize then set
+            quillRef.current = new Quill(editorRef.current, {
+              theme: 'snow',
+              placeholder: 'Write your course description here...',
+              modules: {
+                toolbar: [
+                  [{ header: [1, 2, 3, false] }],
+                  ['bold', 'italic', 'underline'],
+                  ['link', 'blockquote'],
+                  [{ list: 'ordered' }, { list: 'bullet' }]
+                ]
+              }
+            });
+            try {
+              quillRef.current.clipboard.dangerouslyPasteHTML(c.courseDescription || '');
+            } catch (err) {
+              quillRef.current.root.innerHTML = c.courseDescription || '';
+            }
           }
         }
-      } else {
-        console.error('Add course response:', result);
-        alert(result.message || result.error || 'Failed to add course')
+      } catch (e) {
+        console.error('Failed to load course:', e);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error adding course')
-    } finally {
-      setSubmitting(false);
-    }
-  }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveId]);
 
   useEffect(() => {
     if (!quillRef.current && editorRef.current) {
@@ -179,9 +111,212 @@ const AddCourse = () => {
       });
     }
   }, []);
+
+  useEffect(() => {
+    const q = quillRef.current;
+    if (!q) return;
+
+    const sync = () => {
+      const plain = q.getText().trim();
+      setCourseDescription(plain.length > 0 ? q.root.innerHTML : '');
+    };
+
+    q.on('text-change', sync);
+    // initial sync
+    sync();
+    return () => {
+      try { q.off('text-change', sync); } catch (e) { /* ignore */ }
+    };
+  }, [loading]);
+
+  const addChapter = (action, chapterId) => {
+    if (action === 'add') {
+      const title = prompt('Enter Chapter Name:');
+      if (title) {
+        const newChapter = {
+          chapterId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `ch_${Math.random().toString(36).slice(2)}`,
+          chapterTitle: title,
+          chapterContent: [],
+          collapsed: false,
+          chapterOrder: chapters.length > 0 ? chapters[chapters.length - 1].chapterOrder + 1 : 1
+        };
+        setChapters([...chapters, newChapter]);
+      }
+    } else if (action === 'remove') {
+      setChapters(chapters.filter((chapter) => chapter.chapterId !== chapterId));
+    } else if (action === 'toggle') {
+      setChapters(chapters.map((chapter) => (chapter.chapterId === chapterId ? { ...chapter, collapsed: !chapter.collapsed } : chapter)));
+    }
+  };
+
+  const openAddLecture = (chapterId) => {
+    setCurrentChapterId(chapterId);
+    setLectureDetails({ lectureTitle: '', lectureDuration: '', lectureUrl: '', isPreviewFree: false });
+    setEditingLectureId(null);
+    setShowPopup(true);
+  };
+
+  const openEditLecture = (chapterId, lecture) => {
+    setCurrentChapterId(chapterId);
+    setLectureDetails({
+      lectureTitle: lecture.lectureTitle || '',
+      lectureDuration: String(lecture.lectureDuration || ''),
+      lectureUrl: lecture.lectureUrl || '',
+      isPreviewFree: !!lecture.isPreviewFree
+    });
+    setEditingLectureId(lecture.lectureId);
+    setPopupFile(null);
+    setShowPopup(true);
+  };
+
+  const saveLecture = () => {
+    if (!currentChapterId) return;
+    // If editing existing lecture
+    if (editingLectureId) {
+      setChapters((s) => s.map((c) => {
+        if (c.chapterId !== currentChapterId) return c;
+        const updatedLectures = c.chapterContent.map((l) => {
+          if (l.lectureId !== editingLectureId) return l;
+          const updated = {
+            ...l,
+            lectureTitle: lectureDetails.lectureTitle || 'Untitled Lecture',
+            lectureDuration: Number(lectureDetails.lectureDuration) || 0,
+            lectureUrl: popupFile ? URL.createObjectURL(popupFile) : (lectureDetails.lectureUrl || ''),
+            isPreviewFree: !!lectureDetails.isPreviewFree
+          };
+          return updated;
+        });
+        // if a file was selected, map it to existing lectureId for backend replacement
+        if (popupFile) {
+          try {
+            const renamed = new File([popupFile], `${editingLectureId}_${popupFile.name}`, { type: popupFile.type });
+            lectureFilesRef.current.set(editingLectureId, renamed);
+          } catch (err) {
+            lectureFilesRef.current.set(editingLectureId, popupFile);
+          }
+        }
+        return { ...c, chapterContent: updatedLectures };
+      }));
+    } else {
+      // Adding new lecture
+      setChapters((s) => s.map((c) => {
+        if (c.chapterId !== currentChapterId) return c;
+        const newLectureId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `lec_${Math.random().toString(36).slice(2)}`;
+        const newLecture = {
+          lectureId: newLectureId,
+          lectureTitle: lectureDetails.lectureTitle || 'Untitled Lecture',
+          lectureDuration: Number(lectureDetails.lectureDuration) || 0,
+          lectureUrl: popupFile ? URL.createObjectURL(popupFile) : (lectureDetails.lectureUrl || ''),
+          isPreviewFree: !!lectureDetails.isPreviewFree,
+          lectureOrder: c.chapterContent.length + 1
+        };
+        if (popupFile) {
+          try {
+            const renamed = new File([popupFile], `${newLectureId}_${popupFile.name}`, { type: popupFile.type });
+            lectureFilesRef.current.set(newLectureId, renamed);
+          } catch (err) {
+            lectureFilesRef.current.set(newLectureId, popupFile);
+          }
+        }
+        return { ...c, chapterContent: [...c.chapterContent, newLecture] };
+      }));
+    }
+    setShowPopup(false);
+    setPopupFile(null);
+    setEditingLectureId(null);
+  };
+
+  const removeLecture = (chapterId, lectureId) => {
+    setChapters((s) => s.map((c) => (c.chapterId === chapterId ? { ...c, chapterContent: c.chapterContent.filter((l) => l.lectureId !== lectureId) } : c)));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    // basic validation
+    if (!courseTitle.trim()) {
+      alert('Course title is required');
+      setSubmitting(false);
+      return;
+    }
+    const priceNum = Number(coursePrice);
+    const discountNum = Number(discount);
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      alert('Price must be a non-negative number');
+      setSubmitting(false);
+      return;
+    }
+    if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+      alert('Discount must be between 0 and 100');
+      setSubmitting(false);
+      return;
+    }
+
+    let description = '';
+    if (quillRef.current) {
+      const plain = quillRef.current.getText().trim();
+      description = plain.length > 0 ? quillRef.current.root.innerHTML : '';
+    } else {
+      description = courseDescription || '';
+    }
+
+    const descriptionPlain = quillRef.current
+      ? quillRef.current.getText().trim()
+      : (() => {
+        const div = document.createElement('div');
+        div.innerHTML = description || '';
+        return (div.textContent || div.innerText || '').trim();
+      })();
+
+    if (!descriptionPlain) {
+      alert('Course description is required');
+      setSubmitting(false);
+      return;
+    }
+    const courseData = {
+      courseTitle,
+      courseLevel,
+      courseCategory,
+      coursePrice: priceNum || 0,
+      discount: discountNum || 0,
+      courseDescription: description,
+      courseContent: chapters
+    };
+
+    try {
+      const token = await getToken();
+      const lectureFiles = Array.from(lectureFilesRef.current.values());
+      const result = await apiService.updateEducatorCourse(effectiveId, courseData, image, lectureFiles, token);
+      if (result.success) {
+        alert('Course updated successfully!');
+        try { await fetchEducatorCourses(); } catch (e) {}
+      } else {
+        console.error('Update course response:', result);
+        alert(result.message || result.error || 'Failed to update course');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error updating course');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-4">
+        <p>Loading course...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <h2 className="text-2xl mb-4 text-slate-900">Add Course</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl text-slate-900">Edit Course</h2>
+        <Link className="text-sky-600" to="/educator/my-courses">Back to My Courses</Link>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className='flex flex-col gap-1'>
@@ -269,13 +404,11 @@ const AddCourse = () => {
             accept='image/*'
             hidden
           />
-          {image && (
-            <img
-              className='max-h-10'
-              src={URL.createObjectURL(image)}
-              alt='Thumbnail preview'
-            />
-          )}
+          {image ? (
+            <img className='max-h-10' src={URL.createObjectURL(image)} alt='Thumbnail preview' />
+          ) : existingThumbnail ? (
+            <img className='max-h-10' src={existingThumbnail} alt='Current thumbnail' />
+          ) : null}
         </div>
 
         <div className='flex flex-col gap-1'>
@@ -287,7 +420,7 @@ const AddCourse = () => {
             placeholder="0"
             min={0}
             max={100}
-            className='outline-none md:py-2.5 py-2 w-28 px-3 rounded border border-slate-300 focus:ring-2 focus:ring-sky-300'
+            className='outline-none md:py-2.5 py-2 w-28 px-3 rounded border border-gray-500'
             required
           />
         </div>
@@ -307,7 +440,7 @@ const AddCourse = () => {
                   {chapterIndex + 1}. {chapter.chapterTitle}
                 </span>
               </div>
-              <span className='text-slate-600'>
+              <span className='text-gray-500'>
                 {chapter.chapterContent.length} Lectures
               </span>
               <img
@@ -322,15 +455,12 @@ const AddCourse = () => {
                 {chapter.chapterContent.map((lecture, lectureIndex) => (
                   <div key={lecture.lectureId} className="flex justify-between items-center mb-2">
                     <span>
-                      {lectureIndex + 1}. {lecture.lectureTitle} - {lecture.lectureDuration} mins - 
-                      <a href={lecture.lectureUrl} target="_blank" rel="noopener noreferrer" className="text-sky-600 ml-1">Link</a> - {lecture.isPreviewFree ? 'Free Preview' : 'Paid'}
+                      {lectureIndex + 1}. {lecture.lectureTitle} - {lecture.lectureDuration} mins - {lecture.lectureUrl ? (<a href={lecture.lectureUrl} target="_blank" rel="noopener noreferrer" className="text-sky-600 ml-1">Link</a>) : (<span className="ml-1 text-slate-400">No link</span>)} - {lecture.isPreviewFree ? 'Free Preview' : 'Paid'}
                     </span>
-                    <img
-                      src={assets.cross_icon}
-                      alt="Remove lecture"
-                      className="cursor-pointer"
-                      onClick={() => removeLecture(chapter.chapterId, lecture.lectureId)}
-                    />
+                    <div className="flex items-center gap-3">
+                      <button type="button" className="text-sky-600" onClick={() => openEditLecture(chapter.chapterId, lecture)}>Edit</button>
+                      <button type="button" className="text-rose-600" onClick={() => removeLecture(chapter.chapterId, lecture.lectureId)}>Remove</button>
+                    </div>
                   </div>
                 ))}
                 <div
@@ -356,7 +486,7 @@ const AddCourse = () => {
           disabled={submitting}
           className={`bg-sky-600 text-white py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-sky-300 ${submitting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-sky-700'}`}
         >
-          {submitting ? 'Processing…' : 'Add Course'}
+          {submitting ? 'Processing…' : 'Save Changes'}
         </button>
       </form>
 
@@ -431,4 +561,4 @@ const AddCourse = () => {
   );
 };
 
-export default AddCourse;
+export default EditCourse;

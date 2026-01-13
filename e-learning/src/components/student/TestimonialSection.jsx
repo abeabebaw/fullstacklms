@@ -1,7 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { assets, dummyTestimonial } from '../../assets/assets'
 
 const TestimonialSection = () => {
+  const [expanded, setExpanded] = useState(() => dummyTestimonial.map(() => false));
+  const toggle = (i) => setExpanded(prev => { const copy = [...prev]; copy[i] = !copy[i]; return copy; });
+
   return (
     <section className="py-16 px-6 md:px-12 lg:px-20 bg-gray-50">
       <div className="text-center max-w-2xl mx-auto mb-12">
@@ -34,7 +37,7 @@ const TestimonialSection = () => {
             </div>
 
             {/* Testimonial Message */}
-            <p className="text-gray-600 text-base leading-relaxed mb-4 line-clamp-4">
+            <p className={`text-gray-600 text-base leading-relaxed mb-4 ${expanded[index] ? '' : 'line-clamp-4'}`}>
               “{testimonial.message}”
             </p>
 
@@ -51,13 +54,14 @@ const TestimonialSection = () => {
             </div>
 
             {/* Feedback + CTA */}
-            <p className="text-gray-500 text-sm mb-3 line-clamp-2">{testimonial.feedback}</p>
-            <a
-              href="#"
-              className="text-blue-600 font-medium text-sm hover:text-blue-700 transition"
+            <p className={`text-gray-500 text-sm mb-3 ${expanded[index] ? '' : 'line-clamp-2'}`}>{testimonial.feedback}</p>
+            <button
+              onClick={(e) => { e.preventDefault(); toggle(index); }}
+              className="text-blue-600 font-medium text-sm hover:text-blue-700 transition self-start"
+              aria-expanded={expanded[index]}
             >
-              Read more→
-            </a>
+              {expanded[index] ? 'Read less ←' : 'Read more →'}
+            </button>
           </div>
         ))}
       </div>

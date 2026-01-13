@@ -2,79 +2,101 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 import { AppContext } from '../../context/AppContext';
+import { Star, Clock, Users } from 'lucide-react';
 
 const CourseCard = ({ courses }) => {
   const { currency, calculateRating } = useContext(AppContext);
 
-  // Price calculation
   const basePrice = courses?.coursePrice || 0;
   const discount = courses?.discount || 0;
   const finalPrice = (basePrice - (discount * basePrice / 100)).toFixed(2);
 
-  // Rating calculation
   const rating = calculateRating(courses);
   const starCount = Math.floor(rating);
+  const ratingCount = Array.isArray(courses?.courseRatings)
+    ? courses.courseRatings.length
+    : Array.isArray(courses?.courseRating)
+    ? courses.courseRating.length
+    : 0;
 
-  const scrollToTop = () => {
-    window.scrollTo(0, 0);
-  };
+  const scrollToTop = () => window.scrollTo(0, 0);
 
   return (
     <Link
       to={`/courses/${courses?._id || ''}`}
-      className="border rounded-lg p-4 hover:shadow-lg transition overflow-hidden border-blue-500/30 bg-white block"
       onClick={scrollToTop}
+      className="
+        group block
+        bg-white rounded-2xl overflow-hidden
+        border border-gray-100 shadow-sm
+        hover:shadow-2xl hover:shadow-indigo-100/40
+        hover:border-indigo-200
+        transition-all duration-300 hover:-translate-y-1
+      "
     >
-      <div className="text-left space-y-3">
-        {/* Thumbnail */}
+      {/* Image container */}
+      <div className="relative aspect-video overflow-hidden">
         <img
           src={courses?.courseThumbnail || assets.placeholder}
-          alt={courses?.courseTitle || 'Course'}
-          className="w-full h-48 object-cover rounded-md"
-          onError={(e) => (e.target.src = assets.placeholder)}
+          alt={courses?.courseTitle}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={e => (e.target.src = assets.placeholder)}
         />
 
-        {/* Details */}
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold line-clamp-2">
-            {courses?.courseTitle || 'Untitled Course'}
-          </h3>
-          <p className="text-gray-500 text-sm">BIRUH AMIRO</p>
+        {/* Overlay gradient + badge */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-          {/* Rating */}
-          <div className="flex items-center space-x-2">
-            <span className="text-yellow-600 font-semibold">{rating}</span>
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <img
-                  key={i}
-                  src={i < starCount ? assets.star : assets.star_blank}
-                  alt="star"
-                  className="w-4 h-4"
-                />
-              ))}
-            </div>
-            <span className="text-gray-500 text-sm">
-              ({courses?.courseRating?.length || 0})
-            </span>
+        {/* Discount badge */}
+        {discount > 0 && (
+          <div className="
+            absolute top-3 right-3
+            bg-gradient-to-r from-red-500 to-rose-600
+            text-white text-xs font-bold px-3 py-1.5 rounded-full
+            shadow-lg shadow-red-500/30
+          ">
+            {discount}% OFF
           </div>
+        )}
+      </div>
 
-          {/* Price */}
-          <div className="flex items-center space-x-2">
-            {discount > 0 && (
-              <span className="text-gray-400 line-through text-sm">
-                {basePrice} {currency}
-              </span>
-            )}
-            <span className="text-lg font-semibold text-gray-800">
-              {finalPrice} {currency}
-            </span>
-            {discount > 0 && (
-              <span className="bg-red-100 text-red-600 text-xs font-medium px-2 py-1 rounded">
-                {discount}% OFF
-              </span>
-            )}
+      {/* Content */}
+      <div className="p-5 space-y-4">
+        <h3 className="
+          text-lg font-bold text-gray-900
+          line-clamp-2 leading-tight
+          group-hover:text-indigo-700 transition-colors
+        ">
+          {courses?.courseTitle || 'Untitled Course'}
+        </h3>
+
+        <p className="text-sm text-gray-500 font-medium">BIRUH AMIRO</p>
+
+        {/* Rating */}
+        <div className="flex items-center gap-2">
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                size={16}
+                className={i < starCount ? "text-amber-400 fill-amber-400" : "text-gray-300"}
+              />
+            ))}
           </div>
+          <span className="text-sm font-semibold text-gray-700">{rating.toFixed(1)}</span>
+          <span className="text-xs text-gray-400">({ratingCount})</span>
+        </div>
+
+        {/* Price */}
+        <div className="flex items-center gap-3">
+          <span className="text-xl font-bold text-gray-900">
+            {finalPrice} {currency}
+          </span>
+
+          {discount > 0 && (
+            <span className="text-sm text-gray-400 line-through">
+              {basePrice} {currency}
+            </span>
+          )}
         </div>
       </div>
     </Link>

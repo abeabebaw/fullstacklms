@@ -1,23 +1,16 @@
 import React, { useContext, useState } from 'react'
 import { useNavigate } from 'react-router-dom' // Add this import
 import { AppContext } from '../../context/AppContext'
+import { useAuth } from '@clerk/clerk-react';
+import { apiService } from '../../services/api';
 
 const MyEnrollments = () => {
   const { enrolledCourses = [], calculateCourseDuration } = useContext(AppContext)
   const navigate = useNavigate() // Use the hook instead of context
+  const { getToken } = useAuth();
 
-  const [progressArray] = useState([
-    { lectureCompleted: 2, totalLectures: 4 },
-    { lectureCompleted: 1, totalLectures: 5 },
-    { lectureCompleted: 3, totalLectures: 6 },
-    { lectureCompleted: 4, totalLectures: 4 },
-    { lectureCompleted: 6, totalLectures: 8 },
-    { lectureCompleted: 2, totalLectures: 6 },
-    { lectureCompleted: 4, totalLectures: 10 },
-    { lectureCompleted: 3, totalLectures: 5 },
-    { lectureCompleted: 7, totalLectures: 7 },
-    { lectureCompleted: 1, totalLectures: 4 },
-  ])
+  // enrolledCourses items now include `progress` and `status` (added by backend)
+  // progress: { completedLectures: [], completed: bool, progressPercent: number }
 
   const handleCourseClick = (courseId) => {
     navigate('/player/' + courseId)
@@ -42,10 +35,9 @@ const MyEnrollments = () => {
             </thead>
             <tbody>
               {enrolledCourses.map((course, index) => {
-                const completed = progressArray[index]?.lectureCompleted ?? 0
-                const total = progressArray[index]?.totalLectures ?? 0
-                const percent = total > 0 ? Math.round((completed / total) * 100) : 0
-                const isCompleted = total > 0 && completed === total
+                const progressData = course?.progress || { completedLectures: [], completed: false, progressPercent: 0 };
+                const percent = typeof progressData.progressPercent === 'number' ? progressData.progressPercent : 0;
+                const isCompleted = progressData.completed || percent >= 100;
 
                 return (
                   <tr
@@ -68,7 +60,7 @@ const MyEnrollments = () => {
                             {course.courseTitle}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            by {course.instructor || 'Instructor'}
+                            by {((course.instructor && (typeof course.instructor === 'string' ? course.instructor : course.instructor.name)) || 'Instructor')}
                           </p>
 
                           {/* Progress bar near thumbnail */}
@@ -82,7 +74,9 @@ const MyEnrollments = () => {
                               ></div>
                             </div>
                             <p className="text-xs text-gray-600 mt-1">
-                              {completed}/{total} lectures
+                              {progressData.completedLectures?.length || 0}/{
+                                course.courseContent?.reduce((acc, ch) => acc + (ch.chapterContent?.length || 0), 0) || 0
+                              } lectures
                             </p>
                           </div>
                         </div>
@@ -94,16 +88,42 @@ const MyEnrollments = () => {
                     </td>
 
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleCourseClick(course._id)}
-                        className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs font-medium transition ${
-                          isCompleted
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                        }`}
-                      >
-                        {isCompleted ? 'Completed' : 'Continue Learning'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium px-3 py-1 rounded-full ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {course.status ? course.status.toUpperCase() : (isCompleted ? 'COMPLETED' : 'IN PROGRESS')}
+                        </span>
+                        <button
+                          onClick={() => handleCourseClick(course._id)}
+                          className="inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+                        >
+                          Open
+                        </button>
+                          {/* Reset progress button (visible when some progress exists) */}
+                          { (progressData.progressPercent > 0 || (progressData.completedLectures || []).length > 0) && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm('Reset progress for this course?')) return;
+                                try {
+                                  const token = await getToken();
+                                  const res = await apiService.resetProgress(course._id, token);
+                                  if (res.success) {
+                                    // Force a refresh of the page or update local state (simpler: reload)
+                                    window.location.reload();
+                                  } else {
+                                    alert(res.message || res.error || 'Failed to reset progress');
+                                  }
+                                } catch (err) {
+                                  console.error('Reset progress', err);
+                                  alert('Failed to reset progress');
+                                }
+                              }}
+                              className="inline-flex items-center justify-center px-4 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 ml-2"
+                            >
+                              Reset
+                            </button>
+                          )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -115,10 +135,9 @@ const MyEnrollments = () => {
         {/* ---------- MOBILE VIEW ---------- */}
         <div className="md:hidden p-4 space-y-4">
           {enrolledCourses.map((course, index) => {
-            const completed = progressArray[index]?.lectureCompleted ?? 0
-            const total = progressArray[index]?.totalLectures ?? 0
-            const percent = total > 0 ? Math.round((completed / total) * 100) : 0
-            const isCompleted = total > 0 && completed === total
+            const progressData = course?.progress || { completedLectures: [], completed: false, progressPercent: 0 };
+            const percent = typeof progressData.progressPercent === 'number' ? progressData.progressPercent : 0;
+            const isCompleted = progressData.completed || percent >= 100;
 
             return (
               <div
@@ -137,7 +156,7 @@ const MyEnrollments = () => {
                       {course.courseTitle}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      by {course.instructor || 'Instructor'}
+                      by {((course.instructor && (typeof course.instructor === 'string' ? course.instructor : course.instructor.name)) || 'Instructor')}
                     </p>
 
                     {/* Progress bar near thumbnail */}
@@ -151,7 +170,9 @@ const MyEnrollments = () => {
                         ></div>
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
-                        {completed}/{total} lectures
+                        {progressData.completedLectures?.length || 0}/{
+                          course.courseContent?.reduce((acc, ch) => acc + (ch.chapterContent?.length || 0), 0) || 0
+                        } lectures
                       </p>
                     </div>
                   </div>

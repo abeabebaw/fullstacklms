@@ -1,18 +1,24 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
+import { useAuth } from '@clerk/clerk-react';
 import Loading from "../../components/student/Loading";
 import Footer from "../../components/student/Footer";
 import { AppContext } from "../../context/AppContext";
 import { assets } from "../../assets/assets";
 import humanizeDuration from "humanize-duration";
 import YouTube from "react-youtube";
+import { apiService } from '../../services/api';
+import { Link } from 'react-router-dom';
 
 const CourseDetails = () => {
   const { id } = useParams();
+  const { getToken, userId } = useAuth();
   const [courseData, setCourseData] = useState(null);
   const [openSections, setOpenSections] = useState({});
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
   const [playerData, setPlayer] = useState(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [progress, setProgress] = useState({ completedLectures: [], completed: false, progressPercent: 0 });
 
   const {
     allCourses,
@@ -21,16 +27,53 @@ const CourseDetails = () => {
     calculateChapterTime,
     calculateCourseDuration,
     calculateNoOfLectures,
+    navigate,
+    purchaseCourse,
+  fetchAllCourses,
+  getRatingCount,
+  getUserRating,
   } = useContext(AppContext);
 
   // Load selected course
   useEffect(() => {
-    if (allCourses && id) {
-      const found = allCourses.find((c) => c._id === id);
-      setCourseData(found || null);
-    }
+    const fetchCourseData = async () => {
+      if (id) {
+        try {
+          let token = null;
+          try { token = await getToken(); } catch (e) { token = null; }
+          const result = await apiService.getCourseById(id, token);
+          if (result.success) {
+            setCourseData(result.courseData);
+            // determine if current user is enrolled (or is the educator)
+            try {
+              const currentUserId = userId || null;
+              const enrolled = !!(currentUserId && result.courseData.enrolledStudents && result.courseData.enrolledStudents.map(String).includes(String(currentUserId)));
+              const isEducator = !!(currentUserId && result.courseData.educator && (String(result.courseData.educator._id || result.courseData.educator) === String(currentUserId)));
+              setIsAlreadyEnrolled(enrolled || isEducator);
+            } catch (e) {
+              // ignore
+            }
+            // fetch user progress for this course (if signed in)
+            try {
+              if (token) {
+                const p = await apiService.getCourseProgress(id, token);
+                if (p.success) setProgress(p.progress);
+              }
+            } catch (e) {}
+          } else {
+            console.error('Failed to fetch course:', result.message);
+            setCourseData(null);
+          }
+        } catch (error) {
+          console.error('Error fetching course:', error);
+          setCourseData(null);
+        }
+      }
+    };
+    
+    fetchCourseData();
     window.scrollTo(0, 0);
-  }, [id, allCourses]);
+  }, [id]);
 
   const toggleSection = (key) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -42,6 +85,58 @@ const CourseDetails = () => {
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // Handle Purchase with Chapa
+  const handlePurchase = async () => {
+    if (!userId) {
+      const proceed = window.confirm('You need to sign in to enroll. Go to the homepage?');
+      if (proceed) {
+        navigate('/home');
+      }
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      const result = await purchaseCourse(id, finalPrice);
+      
+      if (result.success) {
+        // Redirect to Chapa checkout
+        window.location.href = result.checkoutUrl;
+      } else {
+        alert(result.message || 'Failed to initialize payment');
+        setPurchasing(false);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to initialize payment. Please try again.');
+      setPurchasing(false);
+    }
+  };
+
+  // Extract YouTube video id from various URL formats
+  const extractYouTubeId = (url) => {
+    if (!url) return null;
+    try {
+      // Common patterns: youtu.be/ID, youtube.com/watch?v=ID, youtube.com/embed/ID
+      const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?/]+)(?:[&?/]|$)/i);
+      if (ytMatch && ytMatch[1]) return ytMatch[1];
+
+      // Try URL search param v=
+      try {
+        const parsed = new URL(url);
+        const v = parsed.searchParams.get('v');
+        if (v) return v;
+      } catch (e) {
+        // not a full URL, fallthrough to return null
+      }
+
+      // If we cannot confidently identify a YouTube id, return null
+      return null;
+    } catch (err) {
+      return null;
+    }
+  };
+
   if (!courseData) return <Loading />;
 
   const rating = parseFloat(calculateRating(courseData));
@@ -49,11 +144,11 @@ const CourseDetails = () => {
   const basePrice = courseData?.coursePrice || 0;
   const discount = courseData?.discount || 0;
   const finalPrice = (basePrice - (discount * basePrice) / 100).toFixed(2);
-  const totalRatings = courseData.courseRating?.length || 0;
+  const totalRatings = getRatingCount(courseData);
   const totalStudents = courseData.enrolledStudents?.length || 0;
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white">
+    <div className="flex flex-col min-h-screen bg-cyan">
       {/* MAIN CONTENT */}
       <main className="flex-1 flex md:flex-row flex-col-reverse items-start justify-between md:px-28 px-6 pt-12 pb-16 gap-14">
         {/* LEFT COLUMN */}
@@ -62,8 +157,8 @@ const CourseDetails = () => {
             {courseData.courseTitle || "Untitled Course"}
           </h1>
 
-          <p
-            className="text-gray-600 leading-relaxed"
+          <div
+            className="text-gray-600 leading-relaxed rich-text"
             dangerouslySetInnerHTML={{
               __html: (courseData.courseDescription || "").slice(0, 400),
             }}
@@ -86,10 +181,44 @@ const CourseDetails = () => {
               <span className="text-gray-500">
                 ({totalRatings} {totalRatings === 1 ? "rating" : "ratings"})
               </span>
+              {/* Rating input for enrolled users */}
+              {isAlreadyEnrolled && (
+                <div className="ml-3 flex items-center gap-2">
+                  <label className="text-sm text-gray-600">Your rating:</label>
+                  {[1,2,3,4,5].map((val) => (
+                    <button
+                      key={val}
+                      onClick={async () => {
+                        try {
+                          const token = await getToken();
+                          const res = await apiService.rateCourse(courseData._id, val, token);
+                          if (res.success) {
+                            // refresh course data and course list
+                            const updated = await apiService.getCourseById(courseData._id, token);
+                            if (updated.success) setCourseData(updated.courseData);
+                            try { await fetchAllCourses(); } catch (e) {}
+                          } else {
+                            alert(res.message || 'Failed to save rating');
+                          }
+                        } catch (err) {
+                          console.error('Rating error', err);
+                        }
+                      }}
+                      className="text-sm px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <span>•</span>
             <p className="text-blue-600 font-medium">
               {totalStudents} {totalStudents === 1 ? "student" : "students"}
+            </p>
+            <span>•</span>
+            <p className="text-blue-600 font-medium">
+              Progress: {progress.progressPercent || 0}%
             </p>
             <span>•</span>
             <p className="font-medium">
@@ -161,17 +290,46 @@ const CourseDetails = () => {
                             <span>{lecture.lectureTitle}</span>
                           </div>
                           <div className="flex gap-3 text-xs text-gray-500">
-                            {lecture.isPreviewFree && lecture.lectureUrl && (
+                            {(lecture.lectureUrl && (lecture.isPreviewFree || isAlreadyEnrolled)) && (
                               <span
-                                onClick={() =>
-                                  setPlayer({
-                                    videoId: lecture.lectureUrl.split("/").pop(),
-                                  })
-                                }
+                                onClick={() => {
+                                  const url = lecture.lectureUrl;
+                                  if (!url) {
+                                    alert('Preview not available');
+                                    return;
+                                  }
+                                  const id = extractYouTubeId(url);
+                                  if (id) {
+                                    setPlayer({ videoId: id });
+                                  } else {
+                                    setPlayer({ src: url });
+                                  }
+                                }}
                                 className="text-blue-600 font-medium cursor-pointer hover:underline"
                               >
-                                Preview
+                                {isAlreadyEnrolled ? 'Play' : 'Preview'}
                               </span>
+                            )}
+                            {/* mark complete button for enrolled users */}
+                            {isAlreadyEnrolled && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const token = await getToken();
+                                    const res = await apiService.completeLecture(courseData._id, lecture.lectureId, token);
+                                    if (res.success) {
+                                      setProgress(res.progress);
+                                    } else {
+                                      alert(res.message || 'Failed to mark lecture completed');
+                                    }
+                                  } catch (err) {
+                                    console.error('Complete lecture error', err);
+                                  }
+                                }}
+                                className={`text-xs px-2 py-1 rounded ${progress.completedLectures?.includes(lecture.lectureId) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'} hover:opacity-90`}
+                              >
+                                {progress.completedLectures?.includes(lecture.lectureId) ? 'Completed' : 'Mark complete'}
+                              </button>
                             )}
                             <span>
                               {humanizeDuration(
@@ -206,11 +364,29 @@ const CourseDetails = () => {
         {/* RIGHT COLUMN */}
         <aside className="bg-white rounded-xl shadow-lg overflow-hidden min-w-[320px] sm:min-w-[400px]">
           {playerData ? (
-            <YouTube
-              videoId={playerData.videoId}
-              opts={{ playerVars: { autoplay: 1 } }}
-              iframeClassName="w-full aspect-video"
-            />
+            playerData.videoId ? (
+              <YouTube
+                videoId={playerData.videoId}
+                opts={{ playerVars: { autoplay: 1 } }}
+                iframeClassName="w-full aspect-video"
+              />
+            ) : playerData.src ? (
+              <video
+                src={playerData.src}
+                controls
+                controlsList="nodownload noremoteplayback"
+                disablePictureInPicture
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-full aspect-video object-cover"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <img
+                src={courseData.courseThumbnail}
+                alt="Course Thumbnail"
+                className="w-full h-52 object-cover"
+              />
+            )
           ) : (
             <img
               src={courseData.courseThumbnail}
@@ -275,19 +451,22 @@ const CourseDetails = () => {
             </div>
 
             <button
-              onClick={() => setIsAlreadyEnrolled((s) => !s)}
+              onClick={handlePurchase}
+              disabled={purchasing || isAlreadyEnrolled}
               className={`mt-6 w-full py-3 rounded-lg font-medium transition-all ${
                 isAlreadyEnrolled
                   ? "bg-gray-200 text-gray-700 cursor-not-allowed"
+                  : purchasing
+                  ? "bg-blue-400 text-white cursor-wait"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
-              {isAlreadyEnrolled ? "Already Enrolled" : "Enroll Now"}
+              {purchasing ? 'Processing...' : isAlreadyEnrolled ? 'Already Enrolled' : 'Enroll Now'}
             </button>
 
             <div className="pt-6">
               <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                What’s Included
+                What's Included
               </h4>
               <ul className="list-disc pl-6 text-gray-600 text-sm space-y-1">
                 <li>Lifetime access with free updates</li>
@@ -296,6 +475,93 @@ const CourseDetails = () => {
                 <li>Quizzes to test your knowledge</li>
                 <li>Certificate of completion</li>
               </ul>
+              <div className="mt-4 space-y-2">
+  <Link
+  to={`/courses/${id}/quizzes`}
+  className="
+    inline-flex items-center justify-center w-full
+    px-5 py-3
+    rounded-xl
+    font-bold
+    text-blue-700
+    bg-white
+    border border-blue-300
+    hover:bg-blue-50
+    transition
+    shadow-md
+  "
+>
+  View Quizzes →
+</Link>
+
+
+                {isAlreadyEnrolled && (progress?.progressPercent > 0 || (progress?.completedLectures && progress.completedLectures.length > 0)) && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Reset your progress for this course? This will remove all completed lectures.')) return;
+                      try {
+                        const token = await getToken();
+                        const res = await apiService.resetProgress(id, token);
+                        if (res.success) {
+                          setProgress(res.progress || { completedLectures: [], completed: false, progressPercent: 0 });
+                          alert('Progress has been reset.');
+                        } else {
+                          alert(res.message || res.error || 'Failed to reset progress');
+                        }
+                      } catch (err) {
+                        console.error('Reset progress', err);
+                        alert('Failed to reset progress');
+                      }
+                    }}
+                    className="w-full mt-2 inline-block text-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                  >
+                    Reset Progress
+                  </button>
+                )}
+                {/* Download Certificate button: show when enrolled and course completed */}
+                {isAlreadyEnrolled && progress?.completed && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const token = await getToken();
+                        // find user's quiz results for this course
+                        const myResults = await apiService.getMyQuizResults(token);
+                        if (!myResults || !myResults.success) {
+                          alert('Unable to fetch quiz results');
+                          return;
+                        }
+                        const results = myResults.results || [];
+                        // find most recent passing result for this course
+                        const pass = results.find(r => String(r.courseId) === String(id) && r.passed);
+                        if (!pass) {
+                          alert('No passing quiz result found. You need to pass a course quiz with at least 50% to receive a certificate.');
+                          return;
+                        }
+                        // request certificate generation and PDF
+                        const gen = await apiService.submitQuizResult(id, pass.scorePercent, token);
+                        if (gen && gen.success && gen.certificate && gen.certificate.certificateId) {
+                          const pdfRes = await apiService.getCertificatePdf(gen.certificate.certificateId, token);
+                          if (pdfRes && pdfRes.success && pdfRes.blob) {
+                            const url = URL.createObjectURL(pdfRes.blob);
+                            window.open(url, '_blank');
+                            setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+                          } else {
+                            alert('Failed to download certificate PDF');
+                          }
+                        } else {
+                          alert(gen.message || 'Failed to generate certificate');
+                        }
+                      } catch (e) {
+                        console.error('Certificate error', e);
+                        alert('Failed to generate or open certificate');
+                      }
+                    }}
+                    className="w-full mt-2 inline-block text-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                  >
+                    Download Certificate
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </aside>

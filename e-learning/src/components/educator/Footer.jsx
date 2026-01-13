@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { assets } from "../../assets/assets";
 
 const Footer = () => {
@@ -21,6 +22,12 @@ const Footer = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-5 text-gray-600 dark:text-gray-300">
+          <Link
+            to="/contact"
+            className="text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
+            Contact Us
+          </Link>
           <a
             href="#"
             aria-label="Facebook"

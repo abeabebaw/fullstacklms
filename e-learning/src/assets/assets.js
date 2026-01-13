@@ -42,6 +42,7 @@ import profile_img from './profile_img.png'
 import profile_img2 from './profile_img2.png'
 import profile_img3 from './profile_img3.png'
 import lesson_icon from './lesson_icon.svg'
+import testimonial from './testimonial.jpg'
 
 
 export const assets = {
@@ -89,6 +90,8 @@ export const assets = {
     play_icon,
     blue_tick_icon,
     lesson_icon
+    ,
+    testimonial
 }
 
 export const dummyEducatorData = {
@@ -103,25 +106,25 @@ export const dummyEducatorData = {
 
 export const dummyTestimonial = [
     {
-        name: 'Donald Jackman',
-        role: 'SWE 1 @ Amazon',
-        image: assets.profile_img_1,
+        name: 'Abebaw Shita',
+        role: 'SWE  at wello universty',
+        image: assets.testimonial,
         rating: 5,
-        feedback: 'I\'ve been using Imagify for nearly two years, primarily for Instagram, and it has been incredibly user-friendly, making my work much easier.',
+        feedback: 'Our learners aren’t just studying — they’re advancing. Read how working professionals from diverse industries used our programs to boost productivity, gain confidence, and make meaningful career moves.',
     },
     {
-        name: 'Richard Nelson',
+        name: 'Awoke Atanaw',
         role: 'SWE 2 @ Samsung',
         image: assets.profile_img_2,
-        rating: 4,
-        feedback: 'I\'ve been using Imagify for nearly two years, primarily for Instagram, and it has been incredibly user-friendly, making my work much easier.',
+        rating: 5,
+        feedback: 'From engineers to managers, marketers to analysts — professionals everywhere trust us to help them learn, grow, and stay ahead in their fields. See their stories of transformation and success.',
     },
     {
-        name: 'James Washington',
+        name: 'Solomon Adamu',
         role: 'SWE 2 @ Google',
         image: assets.profile_img_3,
-        rating: 4.5,
-        feedback: 'I\'ve been using Imagify for nearly two years, primarily for Instagram, and it has been incredibly user-friendly, making my work much easier.',
+        rating: 5,
+        feedback: 'From career transitions to promotions, professionals around the globe trust our platform to sharpen their skills and stay competitive. Discover how our courses have empowered working professionals to reach their next big milestone.',
     },
 ];
 

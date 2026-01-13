@@ -15,6 +15,7 @@ const Player = () => {
   const [courseData, setCourseData] = useState(null)
   const [openSections, setOpenSections] = useState({})
   const [playerData, setPlayerData] = useState(null)
+  const [currentLectureId, setCurrentLectureId] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
   const contentRefs = useRef({})
@@ -53,6 +54,25 @@ const Player = () => {
     setPlayerData(lectureObj)
   }
 
+  const extractYouTubeId = (url) => {
+    if (!url) return null;
+    try {
+      const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?/]+)(?:[&?/]|$)/i);
+      if (ytMatch && ytMatch[1]) return ytMatch[1];
+      try {
+        const parsed = new URL(url);
+        const v = parsed.searchParams.get('v');
+        if (v) return v;
+      } catch (e) {
+        // not a full URL
+      }
+      const parts = url.split('/').filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
   const renderPlayer = (lecture) => {
     if (!lecture || !lecture.lectureUrl) return <div className="p-6 text-sm text-gray-500">Select a lecture to play</div>
 
@@ -83,7 +103,13 @@ const Player = () => {
     }
 
     return (
-      <video controls className="w-full bg-black rounded">
+      <video
+        controls
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
+        className="w-full bg-black rounded"
+      >
         <source src={lecture.lectureUrl} />
         Your browser does not support the video tag.
       </video>
@@ -139,18 +165,36 @@ const Player = () => {
                   >
                     <ul className="list-disc pl-10 pr-5 py-3 bg-white text-gray-600 text-sm">
                       {chapter.chapterContent?.map((lecture, i) => (
-                        <li key={i} className="flex items-center justify-between py-1">
+                        <li
+                          key={i}
+                          className={`flex items-center justify-between py-1 ${
+                            (currentLectureId && String(currentLectureId) === String(lecture.lectureId || i))
+                              ? 'bg-blue-50 rounded'
+                              : ''
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             <img className="w-4 h-4" src={assets.play_icon} alt="play" />
-                            <span>{lecture.lectureTitle}</span>
+                            <span className="font-medium text-gray-800">{lecture.lectureTitle}</span>
+                            {(currentLectureId && String(currentLectureId) === String(lecture.lectureId || i)) && (
+                              <span className="ml-2 px-2 py-0.5 text-[11px] bg-blue-600 text-white rounded-full">Now Playing</span>
+                            )}
                           </div>
                           <div className="flex gap-3 text-xs text-gray-500">
                             {lecture.lectureUrl && (
                               <span
-                                onClick={() => setPlayer({ videoId: lecture.lectureUrl.split('/').pop(), lectureTitle: lecture.lectureTitle })}
+                                onClick={() => {
+                                  const id = extractYouTubeId(lecture.lectureUrl)
+                                  if (id && /youtube.com|youtu.be/.test(lecture.lectureUrl)) {
+                                    setPlayer({ videoId: id, lectureTitle: lecture.lectureTitle })
+                                  } else {
+                                    setPlayer({ lectureUrl: lecture.lectureUrl, lectureTitle: lecture.lectureTitle })
+                                  }
+                                  setCurrentLectureId(lecture.lectureId || i)
+                                }}
                                 className="text-blue-600 font-medium cursor-pointer hover:underline"
                               >
-                                Preview
+                                Play
                               </span>
                             )}
                             <span>{humanizeDuration((lecture.lectureDuration || 0) * 60 * 1000, { units: ['h', 'm'], round: true })}</span>
@@ -175,9 +219,16 @@ const Player = () => {
         {/* RIGHT: Player & Info */}
         <aside className="bg-white rounded-xl shadow-lg overflow-hidden min-w-[320px] sm:min-w-[400px]">
           {playerData && playerData.videoId ? (
-            <YouTube videoId={playerData.videoId} opts={{ playerVars: { autoplay: 1 } }} iframeClassName="w-full aspect-video" />
+            <YouTube key={playerData.videoId} videoId={playerData.videoId} opts={{ playerVars: { autoplay: 1 } }} iframeClassName="w-full aspect-video" />
           ) : playerData && playerData.lectureUrl ? (
-            <video controls className="w-full h-52 object-cover bg-black">
+            <video
+              key={playerData.lectureUrl}
+              controls
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              onContextMenu={(e) => e.preventDefault()}
+              className="w-full h-52 object-cover bg-black"
+            >
               <source src={playerData.lectureUrl} />
             </video>
           ) : (

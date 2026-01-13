@@ -11,6 +11,7 @@ const Sidebar = () => {
     { name: "Dashboard", path: "/educator", icon: assets.home_icon, alt: "Home icon" },
     { name: "Add Course", path: "/educator/add-course", icon: assets.add_icon, alt: "Add course icon" },
     { name: "My Courses", path: "/educator/my-courses", icon: assets.my_course_icon, alt: "My courses icon" },
+    { name: "Edit Course", path: "/educator/my-courses", icon: assets.my_course_icon, alt: "Edit course icon" },
     { name: "Student Enrolled", path: "/educator/student-enrolled", icon: assets.person_tick_icon, alt: "Student enrolled icon" },
   ];
 
@@ -21,7 +22,7 @@ const Sidebar = () => {
       <div className="flex flex-col w-full">
         {menuItems.map((item) => (
           <NavLink
-            key={item.path}
+            key={`${item.name}-${item.path}`}
             to={item.path}
             // ✅ Use `end` only for the dashboard (exact match)
             end={item.path === "/educator"}

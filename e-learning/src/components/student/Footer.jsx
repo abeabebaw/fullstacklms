@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { assets } from "../../assets/assets";
 
 function Footer() {
@@ -37,15 +38,10 @@ function Footer() {
         {/* Links Section */}
         <div className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold text-white mb-2">Company</h2>
-          {["Home", "Contact Us", "About Us", "Privacy Policy"].map((item, i) => (
-            <a
-              key={i}
-              href="#"
-              className="hover:text-white transition-colors text-sm"
-            >
-              {item}
-            </a>
-          ))}
+          <Link to="/home" className="hover:text-white transition-colors text-sm">Home</Link>
+          <Link to="/contact" className="hover:text-white transition-colors text-sm">Contact Us</Link>
+          <a href="#" className="hover:text-white transition-colors text-sm">About Us</a>
+          <a href="#" className="hover:text-white transition-colors text-sm">Privacy Policy</a>
         </div>
 
         {/* Newsletter Section */}

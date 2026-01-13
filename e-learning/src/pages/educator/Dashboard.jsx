@@ -4,20 +4,37 @@ import { AppContext } from "../../context/AppContext";
 import { dummyDashboardData } from "../../assets/assets";
 import Loading from "../../components/student/Loading";
 import { assets } from "../../assets/assets";
+import { useAuth } from '@clerk/clerk-react';
+import { apiService } from '../../services/api';
 
 const Dashboard = () => {
-  const { currency } = useContext(AppContext);
-  const [dashboardData, setDashboardData] = useState(null);
+  const { currency, dashboardData, fetchEducatorDashboardData } = useContext(AppContext);
+  const { getToken } = useAuth();
+  const [localDashboardData, setLocalDashboardData] = useState(null);
 
-  const fetchDashboardData = () => {
-    setDashboardData(dummyDashboardData);
+  const fetchDashboardData = async () => {
+    const token = await getToken();
+    const result = await apiService.getEducatorDashboardData(token);
+    if (result && result.success) {
+      setLocalDashboardData(result.dashboardData);
+    } else {
+      console.error('Failed to fetch dashboard data:', (result && (result.error || result.message)) || 'Unknown error');
+      setLocalDashboardData(dummyDashboardData);
+    }
   };
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  if (!dashboardData) return <Loading />;
+  const data = localDashboardData || dashboardData || dummyDashboardData;
+
+  // Ensure arrays/defaults to avoid undefined errors when dashboardData is an empty object
+  const enrolled = Array.isArray(data.enrolledStudentsData) ? data.enrolledStudentsData : [];
+  const totalCourses = data.totalCourses || 0;
+  const totalEarnings = data.totalEarnings || 0;
+
+  if (!data) return <Loading />;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 md:p-8">
@@ -37,7 +54,7 @@ const Dashboard = () => {
             />
             <div>
               <p className="text-3xl font-bold text-gray-700">
-                {dashboardData.enrolledStudentsData.length}
+                {enrolled.length}
               </p>
               <p className="text-gray-500">Total Enrollments</p>
             </div>
@@ -51,7 +68,7 @@ const Dashboard = () => {
             />
             <div>
               <p className="text-3xl font-bold text-gray-700">
-                {dashboardData.totalCourses || 0}
+                {totalCourses}
               </p>
               <p className="text-gray-500">Total Courses</p>
             </div>
@@ -65,7 +82,7 @@ const Dashboard = () => {
             />
             <div>
               <p className="text-3xl font-bold text-gray-700">
-                {currency} {dashboardData.totalEarnings}
+                {currency} {totalEarnings}
               </p>
               <p className="text-gray-500">Total Earnings</p>
             </div>
@@ -97,7 +114,7 @@ const Dashboard = () => {
               </thead>
 
               <tbody>
-                {dashboardData.enrolledStudentsData.map((item, index) => (
+                {enrolled.map((item, index) => (
                   <tr
                     key={index}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors"

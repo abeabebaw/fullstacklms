@@ -33,19 +33,11 @@ const AddCourse = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // handlers
+  const [showChapterInput, setShowChapterInput] = useState(false);
+  const [newChapterTitle, setNewChapterTitle] = useState('');
   const addChapter = (action, chapterId) => {
     if (action === 'add') {
-      const title = prompt('Enter Chapter Name:');
-      if (title) {
-        const newChapter = {
-          chapterId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `ch_${Math.random().toString(36).slice(2)}`,
-          chapterTitle: title,
-          chapterContent: [],
-          collapsed: false,
-          chapterOrder: chapters.length > 0 ? chapters[chapters.length - 1].chapterOrder + 1 : 1
-        }
-        setChapters([...chapters, newChapter])
-      }
+      setShowChapterInput(true);
     }
     else if (action === 'remove') {
       setChapters(chapters.filter((chapter) => chapter.chapterId !== chapterId))
@@ -60,6 +52,27 @@ const AddCourse = () => {
         )
       )
     }
+  }
+
+  const handleAddChapterConfirm = () => {
+    const title = newChapterTitle.trim();
+    if (title) {
+      const newChapter = {
+        chapterId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `ch_${Math.random().toString(36).slice(2)}`,
+        chapterTitle: title,
+        chapterContent: [],
+        collapsed: false,
+        chapterOrder: chapters.length > 0 ? chapters[chapters.length - 1].chapterOrder + 1 : 1
+      }
+      setChapters([...chapters, newChapter]);
+      setNewChapterTitle('');
+      setShowChapterInput(false);
+    }
+  }
+
+  const handleAddChapterCancel = () => {
+    setNewChapterTitle('');
+    setShowChapterInput(false);
   }
 
   const toggleChapter = (id) => {
@@ -344,12 +357,43 @@ const AddCourse = () => {
           </div>
         ))}
 
-        <div
-          className="flex justify-center items-center bg-sky-100 p-2 rounded-lg cursor-pointer"
-          onClick={() => addChapter('add')}
-        >
-          + Add Chapter
-        </div>
+
+        {showChapterInput ? (
+          <div className="flex flex-col md:flex-row items-center gap-2 bg-sky-50 p-3 rounded-lg border border-sky-200 my-2">
+            <input
+              type="text"
+              className="outline-none py-2 px-3 rounded border border-slate-300 focus:ring-2 focus:ring-sky-300 w-full md:w-64"
+              placeholder="Enter Chapter Name"
+              value={newChapterTitle}
+              onChange={e => setNewChapterTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddChapterConfirm(); }}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2 md:mt-0">
+              <button
+                type="button"
+                className="bg-sky-600 text-white px-3 py-1 rounded hover:bg-sky-700"
+                onClick={handleAddChapterConfirm}
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                className="bg-slate-200 text-slate-700 px-3 py-1 rounded hover:bg-slate-300"
+                onClick={handleAddChapterCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="flex justify-center items-center bg-sky-100 p-2 rounded-lg cursor-pointer"
+            onClick={() => addChapter('add')}
+          >
+            + Add Chapter
+          </div>
+        )}
 
         <button
           type="submit"
@@ -361,67 +405,88 @@ const AddCourse = () => {
       </form>
 
       {showPopup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 z-50">
-          <div className="bg-white text-slate-700 p-4 rounded relative w-full max-w-md border border-slate-200">
-            <h2 className="text-lg font-semibold mb-4">Add Lecture</h2>
-
-            <label className="block text-sm text-slate-600">Title</label>
-            <input
-              className="mt-1 block w-full border border-slate-300 rounded py-1 px-2 mb-2 focus:ring-2 focus:ring-sky-300"
-              value={lectureDetails.lectureTitle}
-              onChange={(e) => setLectureDetails({ ...lectureDetails, lectureTitle: e.target.value })}
-            />
-
-            <label className="block text-sm text-slate-600">Duration (minutes)</label>
-            <input
-              className="mt-1 block w-full border border-slate-300 rounded py-1 px-2 mb-2 focus:ring-2 focus:ring-sky-300"
-              type="number"
-              value={lectureDetails.lectureDuration}
-              onChange={(e) => setLectureDetails({ ...lectureDetails, lectureDuration: e.target.value })}
-            />
-
-            <label className="block text-sm text-slate-600">Video URL</label>
-            <input
-              className="mt-1 block w-full border border-slate-300 rounded py-1 px-2 mb-2 focus:ring-2 focus:ring-sky-300"
-              value={lectureDetails.lectureUrl}
-              onChange={(e) => setLectureDetails({ ...lectureDetails, lectureUrl: e.target.value })}
-              placeholder="Or choose a local video below"
-            />
-
-            <label className="block text-sm text-slate-600 mt-2">Or upload local video</label>
-            <input
-              type="file"
-              accept="video/*"
-              className="mt-1 block w-full border border-slate-300 rounded py-1 px-2 mb-2 focus:ring-2 focus:ring-sky-300"
-              onChange={(e) => setPopupFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
-            />
-            {popupFile && (
-              <div className="text-sm text-slate-500">Selected: {popupFile.name}</div>
-            )}
-
-            <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={lectureDetails.isPreviewFree}
-                onChange={(e) => setLectureDetails({ ...lectureDetails, isPreviewFree: e.target.checked })}
-              />
-              Preview free
-            </label>
-
-            <div className="mt-4 flex gap-2 justify-end">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-white text-slate-800 p-6 rounded-2xl shadow-2xl relative w-full max-w-lg border border-slate-200 animate-fadeIn">
+            <button
+              type="button"
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 text-xl font-bold focus:outline-none"
+              onClick={() => setShowPopup(false)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold mb-6 text-sky-700 flex items-center gap-2">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Add New Lecture
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Lecture Title</label>
+                <input
+                  className="block w-full border border-slate-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition"
+                  value={lectureDetails.lectureTitle}
+                  onChange={(e) => setLectureDetails({ ...lectureDetails, lectureTitle: e.target.value })}
+                  placeholder="Enter lecture title"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Duration <span className="text-xs text-slate-400">(minutes)</span></label>
+                <input
+                  className="block w-full border border-slate-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition"
+                  type="number"
+                  min="0"
+                  value={lectureDetails.lectureDuration}
+                  onChange={(e) => setLectureDetails({ ...lectureDetails, lectureDuration: e.target.value })}
+                  placeholder="e.g. 45"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Video URL</label>
+                <input
+                  className="block w-full border border-slate-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition"
+                  value={lectureDetails.lectureUrl}
+                  onChange={(e) => setLectureDetails({ ...lectureDetails, lectureUrl: e.target.value })}
+                  placeholder="Paste video URL or upload below"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Or upload local video</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="block w-full border border-slate-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+                  onChange={(e) => setPopupFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                />
+                {popupFile && (
+                  <div className="text-xs text-slate-500 mt-1">Selected: <span className="font-medium">{popupFile.name}</span></div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  id="previewFree"
+                  checked={lectureDetails.isPreviewFree}
+                  onChange={(e) => setLectureDetails({ ...lectureDetails, isPreviewFree: e.target.checked })}
+                  className="accent-sky-600 h-4 w-4"
+                />
+                <label htmlFor="previewFree" className="text-sm text-slate-600 select-none cursor-pointer">Preview free</label>
+              </div>
+            </div>
+            <div className="mt-8 flex gap-3 justify-end">
               <button
                 type="button"
-                className="px-3 py-1 bg-slate-200 rounded"
+                className="px-5 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition"
                 onClick={() => setShowPopup(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="px-3 py-1 bg-sky-600 text-white rounded"
+                className="px-5 py-2 bg-sky-600 text-white rounded-lg font-semibold hover:bg-sky-700 transition shadow"
                 onClick={saveLecture}
               >
-                Save
+                Save Lecture
               </button>
             </div>
           </div>

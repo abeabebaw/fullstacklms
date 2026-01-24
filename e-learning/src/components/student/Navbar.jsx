@@ -12,6 +12,7 @@ const Navbar = () => {
   const location = useLocation();
 
   const isCourseListPage = location.pathname.includes('/course-list');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [becomeOpen, setBecomeOpen] = useState(false);
 
   const NavigationItems = () => {
@@ -65,6 +66,12 @@ const Navbar = () => {
 
             {/* Desktop Nav + Auth */}
             <div className="hidden md:flex items-center gap-6">
+              {/* Navigation Links */}
+              <Link to="/home" className="navlink">Home</Link>
+              <Link to="/about" className="navlink">About</Link>
+              <Link to="/contact" className="navlink">Contact</Link>
+              <Link to="/course-list" className="navlink">Courses</Link>
+
               {user && <NavigationItems />}
 
               {userProfile?.role === 'student' && (
@@ -97,7 +104,6 @@ const Navbar = () => {
                 />
               ) : (
                 <div className="flex items-center gap-3">
-                 
                   <button
                     onClick={() => openSignUp()}
                     className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200"
@@ -110,33 +116,18 @@ const Navbar = () => {
 
             {/* Mobile Nav */}
             <div className="md:hidden flex items-center gap-4">
+              <button
+                className="p-2 rounded-lg hover:bg-blue-100 focus:outline-none"
+                aria-label="Open menu"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <svg className="w-7 h-7 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </button>
               {user ? (
-                <div className="flex items-center gap-3">
-                  {!(userProfile?.role === 'admin' || userProfile?.role === 'educator') && (
-                    <Link
-                      to="/my-enrollments"
-                      className="px-3 py-1.5 text-xs sm:text-sm font-medium bg-white/70 rounded-lg shadow-sm hover:bg-white/90 transition-colors"
-                    >
-                      Courses
-                    </Link>
-                  )}
-
-                  {userProfile?.role === 'student' && (
-                    <button
-                      onClick={() => setBecomeOpen(true)}
-                      className="px-3 py-1.5 text-xs sm:text-sm font-medium bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      Educator
-                    </button>
-                  )}
-
-                  <UserButton
-                    afterSignOutUrl="/"
-                    appearance={{
-                      elements: { avatarBox: "h-8 w-8" }
-                    }}
-                  />
-                </div>
+                <UserButton
+                  afterSignOutUrl="/"
+                  appearance={{ elements: { avatarBox: "h-8 w-8" } }}
+                />
               ) : (
                 <button
                   onClick={() => openSignIn()}
@@ -146,6 +137,33 @@ const Navbar = () => {
                 </button>
               )}
             </div>
+
+            {/* Mobile Menu Dropdown */}
+            {mobileMenuOpen && (
+              <div className="absolute top-16 left-0 w-full bg-white shadow-lg z-40 flex flex-col items-center py-4 gap-4 md:hidden animate-slideDown">
+                <Link to="/home" className="navlink text-base w-full text-center" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                <Link to="/about" className="navlink text-base w-full text-center" onClick={() => setMobileMenuOpen(false)}>About</Link>
+                <Link to="/contact" className="navlink text-base w-full text-center" onClick={() => setMobileMenuOpen(false)}>Contact</Link>
+                <Link to="/course-list" className="navlink text-base w-full text-center" onClick={() => setMobileMenuOpen(false)}>Courses</Link>
+                {user && <NavigationItems />}
+                {userProfile?.role === 'student' && (
+                  <button
+                    onClick={() => { setBecomeOpen(true); setMobileMenuOpen(false); }}
+                    className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full hover:from-blue-700 hover:to-indigo-700 shadow-sm hover:shadow-md transition-all duration-200 w-full"
+                  >
+                    Become Educator
+                  </button>
+                )}
+                {userProfile?.role === 'admin' && (
+                  <button
+                    onClick={() => { navigate('/admin'); setMobileMenuOpen(false); }}
+                    className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full hover:from-purple-700 hover:to-indigo-700 shadow-sm hover:shadow-md transition-all duration-200 w-full"
+                  >
+                    Admin
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </nav>

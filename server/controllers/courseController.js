@@ -7,6 +7,7 @@ import { ensureLocalUser } from '../utils/syncUser.js';
 import axios from 'axios';
 import crypto from 'crypto';
 import cloudinary from '../config/cloudinary.js';
+import { sendMail } from '../utils/mailer.js';
 
 export const getAllCourse = async (req, res) => {
     try {
@@ -326,6 +327,27 @@ export const verifyPayment = async (req, res) => {
                 if (!enrolledStudentIds.includes(String(purchase.userId))) {
                     course.enrolledStudents.push(purchase.userId);
                     await course.save();
+                }
+            }
+
+            // Notify admins about new student enrollment
+            const admins = await User.find({ role: 'admin' });
+            if (admins.length > 0) {
+                const adminEmails = admins.map(a => a.email).filter(e => e);
+                if (adminEmails.length > 0) {
+                    const subject = 'New Student Enrollment';
+                    const text = `A student has successfully enrolled in a course.\n\nStudent: ${user.name || 'Unknown'}\nEmail: ${user.email || 'Unknown'}\nCourse: ${course.courseTitle}\nAmount Paid: ${purchase.amount} ${process.env.VITE_CURRENCY || 'ETB'}\n\nEnrollment completed successfully.`;
+                    const html = `<p>A student has successfully enrolled in a course.</p>
+                      <ul>
+                        <li><strong>Student:</strong> ${user.name || 'Unknown'}</li>
+                        <li><strong>Email:</strong> ${user.email || 'Unknown'}</li>
+                        <li><strong>Course:</strong> ${course.courseTitle}</li>
+                        <li><strong>Amount Paid:</strong> ${purchase.amount} ${process.env.VITE_CURRENCY || 'ETB'}</li>
+                      </ul>
+                      <p>Enrollment completed successfully.</p>`;
+                    for (const adminEmail of adminEmails) {
+                      try { await sendMail({ to: adminEmail, subject, text, html }); } catch (e) { /* already logged */ }
+                    }
                 }
             }
 

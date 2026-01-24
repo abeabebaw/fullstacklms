@@ -6,6 +6,7 @@ import cloudinary from '../config/cloudinary.js';
 import fs from 'fs';
 import { ensureLocalUser } from '../utils/syncUser.js';
 import path from 'path';
+import { sendMail } from '../utils/mailer.js';
 
 export const updateRoleToEducator = async (req, res) => {
   try {
@@ -83,6 +84,29 @@ export const addCourse = async (req, res) => {
     // assign possibly-updated courseContent to newCourse and save
     newCourse.courseContent = parsedCourseData.courseContent || [];
     await newCourse.save();
+
+    // Notify admins about new course creation
+    const admins = await User.find({ role: 'admin' });
+    if (admins.length > 0) {
+      const adminEmails = admins.map(a => a.email).filter(e => e);
+      if (adminEmails.length > 0) {
+        const educator = await User.findById(educatorId);
+        const subject = 'New Course Created by Educator';
+        const text = `An educator has created a new course.\n\nEducator: ${educator?.name || 'Unknown'}\nEmail: ${educator?.email || 'Unknown'}\nCourse: ${newCourse.courseTitle}\nCategory: ${newCourse.courseCategory}\nPrice: ${newCourse.coursePrice} ${process.env.VITE_CURRENCY || 'ETB'}\n\nPlease review the course in the admin dashboard.`;
+        const html = `<p>An educator has created a new course.</p>
+          <ul>
+            <li><strong>Educator:</strong> ${educator?.name || 'Unknown'}</li>
+            <li><strong>Email:</strong> ${educator?.email || 'Unknown'}</li>
+            <li><strong>Course:</strong> ${newCourse.courseTitle}</li>
+            <li><strong>Category:</strong> ${newCourse.courseCategory}</li>
+            <li><strong>Price:</strong> ${newCourse.coursePrice} ${process.env.VITE_CURRENCY || 'ETB'}</li>
+          </ul>
+          <p>Please review the course in the <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/courses">admin dashboard</a>.</p>`;
+        for (const adminEmail of adminEmails) {
+          try { await sendMail({ to: adminEmail, subject, text, html }); } catch (e) { /* already logged */ }
+        }
+      }
+    }
     
     res.json({ success: true, message: 'Course Added' });
   } catch (error) {

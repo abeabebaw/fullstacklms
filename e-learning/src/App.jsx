@@ -26,6 +26,8 @@ import AdminReports from './pages/admin/AdminReports';
 import AdminEducatorRequests from './pages/admin/AdminEducatorRequests';
 import "quill/dist/quill.snow.css";
 import ContactUs from './pages/student/ContactUs';
+import About from './pages/student/About';
+import PrivacyPolicy from './pages/student/PrivacyPolicy';
 
 function App() {
   const isEducatorRoute = useMatch('/educator/*');
@@ -49,6 +51,8 @@ function App() {
         <Route path="/player/:id" element={<Player />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
         {/* Educator Routes */}
         <Route path="/educator" element={<Educator />}>

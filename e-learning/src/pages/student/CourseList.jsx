@@ -126,16 +126,17 @@ const CourseList = () => {
   }, [allCourses])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-cyan-50/40">
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white">
+      <div className="bg-gradient-to-r from-blue-600 via-cyan-600 to-indigo-700 text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.2),transparent_60%)] pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16">
           <div className="text-center md:text-left">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent drop-shadow-lg">
               Master New Skills
             </h1>
-            <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mb-8">
-              Explore our curated collection of {stats.totalCourses}+ courses taught by industry experts
+            <p className="text-xl md:text-2xl text-blue-100/90 max-w-3xl mb-8">
+              Explore our curated collection of <span className="font-bold text-white">{stats.totalCourses}+</span> courses taught by industry experts
             </p>
             <div className="max-w-2xl mx-auto md:mx-0">
               <SearchBar data={input} />
@@ -153,16 +154,16 @@ const CourseList = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Controls Bar */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg p-4 border border-blue-100">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all shadow-sm"
             >
               <Filter size={18} />
               <span className="font-medium">Filters</span>
               {activeFilters.length > 0 && (
-                <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs px-2 py-1 rounded-full shadow">
                   {activeFilters.length}
                 </span>
               )}
@@ -208,7 +209,10 @@ const CourseList = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+          <div
+            id="course-filters-panel"
+            className="bg-gradient-to-br from-white/90 via-blue-50/80 to-cyan-50/80 rounded-2xl shadow-xl p-6 mb-8 border border-blue-100 animate-fade-in-up"
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Filter Courses</h3>
               <button
@@ -272,7 +276,16 @@ const CourseList = () => {
               Showing {filteredCourse.length} of {allCourses?.length || 0} courses
             </p>
           </div>
-          <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
+          <button
+            className="flex items-center gap-2 text-blue-600 hover:text-cyan-600 font-semibold transition-colors"
+            onClick={() => {
+              setShowFilters(true);
+              setTimeout(() => {
+                const filterPanel = document.getElementById('course-filters-panel');
+                if (filterPanel) filterPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 50);
+            }}
+          >
             <span>See all categories</span>
             <ArrowRight size={18} />
           </button>
@@ -281,20 +294,22 @@ const CourseList = () => {
         {/* Courses Grid/List */}
         {filteredCourse.length > 0 ? (
           <div className={viewType === 'grid' 
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8' 
             : 'flex flex-col gap-4'
           }>
             {filteredCourse.map((courses, i) => (
-              <CourseCard key={i} courses={courses} enrolled={enrolledMap[courses._id]} />
+              <div className="transition-transform duration-300 hover:scale-[1.03] hover:shadow-2xl rounded-2xl">
+                <CourseCard key={i} courses={courses} enrolled={enrolledMap[courses._id]} />
+              </div>
             ))}
           </div>
         ) : (
           <div className="text-center py-20">
             <div className="max-w-md mx-auto">
-              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-200 to-cyan-200 rounded-full flex items-center justify-center animate-float-slow">
                 <Search className="text-blue-500" size={40} />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+              <h3 className="text-2xl font-extrabold bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent mb-3">
                 {input ? 'No courses found' : 'No courses available'}
               </h3>
               <p className="text-gray-600 mb-8">
@@ -316,8 +331,9 @@ const CourseList = () => {
         )}
 
         {/* Quick Stats Footer */}
-       <Footer/>
+      
       </div>
+       <Footer/>
     </div>
   )
 }

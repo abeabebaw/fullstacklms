@@ -46,6 +46,27 @@ export const createEducatorRequest = async (req, res) => {
       additionalInfo: additionalInfo || ''
     });
     
+    // Notify admins via email
+    const admins = await User.find({ role: 'admin' });
+    if (admins.length > 0) {
+      const adminEmails = admins.map(a => a.email).filter(e => e);
+      if (adminEmails.length > 0) {
+        const subject = 'New Educator Application Submitted';
+        const text = `A new educator application has been submitted.\n\nApplicant: ${reqDoc.name}\nEmail: ${reqDoc.email}\nPhone: ${reqDoc.phone}\nAdditional Info: ${reqDoc.additionalInfo || 'None'}\n\nPlease review in the admin dashboard.`;
+        const html = `<p>A new educator application has been submitted.</p>
+          <ul>
+            <li><strong>Applicant:</strong> ${reqDoc.name}</li>
+            <li><strong>Email:</strong> ${reqDoc.email}</li>
+            <li><strong>Phone:</strong> ${reqDoc.phone}</li>
+            <li><strong>Additional Info:</strong> ${reqDoc.additionalInfo || 'None'}</li>
+          </ul>
+          <p>Please review in the <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/educator-requests">admin dashboard</a>.</p>`;
+        for (const adminEmail of adminEmails) {
+          try { await sendMail({ to: adminEmail, subject, text, html }); } catch (e) { /* already logged */ }
+        }
+      }
+    }
+    
     res.json({ success: true, request: reqDoc });
   } catch (error) {
     console.error('createEducatorRequest error:', error);

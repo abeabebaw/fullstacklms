@@ -24,7 +24,7 @@ const AdminSidebar = ({ onClose }) => {
         )}
       </div>
       <nav className="p-2 space-y-1">
-        <LinkItem to="/admin" label="Overview" icon={<svg fill="currentColor" viewBox="0 0 20 20"><path d="M11 17a1 1 0 01-1 1H4a2 2 0 01-2-2V5a1 1 0 011-1h6a1 1 0 011 1v12zM17 7a1 1 0 00-1-1h-3v12h3a1 1 0 001-1V7z"/></svg>} />
+      <LinkItem to="/admin" label="Overview" icon={<svg fill="currentColor" viewBox="0 0 20 20"><path d="M11 17a1 1 0 01-1 1H4a2 2 0 01-2-2V5a1 1 0 011-1h6a1 1 0 011 1v12zM17 7a1 1 0 00-1-1h-3v12h3a1 1 0 001-1V7z"/></svg>} />
         <LinkItem to="/admin/users" label="Users" icon={<svg fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a5 5 0 100-10 5 5 0 000 10zm-7 7a7 7 0 1114 0H3z"/></svg>} />
         <LinkItem to="/admin/courses" label="Courses" icon={<svg fill="currentColor" viewBox="0 0 20 20"><path d="M4 3h12a1 1 0 011 1v9a3 3 0 01-3 3H6a3 3 0 01-3-3V4a1 1 0 011-1zm2 3v2h8V6H6z"/></svg>} />
         <LinkItem to="/admin/educator-requests" label="Educator Requests" icon={<svg fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2h-5l-3 3v-3H4a2 2 0 01-2-2V6z"/></svg>} />

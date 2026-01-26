@@ -43,6 +43,8 @@ import profile_img2 from './profile_img2.png'
 import profile_img3 from './profile_img3.png'
 import lesson_icon from './lesson_icon.svg'
 import testimonial from './testimonial.jpg'
+import sol from'./sol.jpg'
+import awoke from'./awok.jpg'
 
 
 export const assets = {
@@ -91,7 +93,9 @@ export const assets = {
     blue_tick_icon,
     lesson_icon
     ,
-    testimonial
+    testimonial,
+    sol, 
+    awoke
 }
 
 export const dummyEducatorData = {
@@ -115,14 +119,14 @@ export const dummyTestimonial = [
     {
         name: 'Awoke Atanaw',
         role: 'SWE 2 @ Samsung',
-        image: assets.profile_img_2,
+        image: assets.awoke,
         rating: 5,
         feedback: 'From engineers to managers, marketers to analysts — professionals everywhere trust us to help them learn, grow, and stay ahead in their fields. See their stories of transformation and success.',
     },
     {
         name: 'Solomon Adamu',
         role: 'SWE 2 @ Google',
-        image: assets.profile_img_3,
+        image: assets.sol,
         rating: 5,
         feedback: 'From career transitions to promotions, professionals around the globe trust our platform to sharpen their skills and stay competitive. Discover how our courses have empowered working professionals to reach their next big milestone.',
     },
